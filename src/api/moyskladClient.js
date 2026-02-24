@@ -12,6 +12,18 @@ const apiClient = axios.create({
     Accept: 'application/json;charset=utf-8',
     'Content-Type': 'application/json',
   },
+
+  paramsSerializer: (params) => {
+    const searchParams = new URLSearchParams();
+    for (const key in params) {
+      if (Array.isArray(params[key])) {
+        searchParams.append(key, params[key].join(','));
+      } else {
+        searchParams.append(key, params[key]);
+      }
+    }
+    return searchParams.toString();
+  },
 });
 
 export const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -130,12 +142,11 @@ export async function fetchStores() {
 
 export async function fetchStockByStore(limit = 1000, offset = 0) {
   return await rateLimitedRequest(async () => {
-    const response = await apiClient.get('/report/stock/bystore', {
+    const response = await apiClient.get('report/stock/byStore', {
       params: {
         limit,
         offset,
-        stockType: 'all',
-        groupBy: 'store',
+        stockMode: 'byStore',
       },
     });
 
