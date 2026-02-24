@@ -22,7 +22,7 @@ export async function createRemainsReport() {
     try {
       console.log('создание задачи на формирование отчета об остатках...');
 
-      const response = await reportsApi.get('/api/v1/warehouse_remains');
+      const response = await reportsApi.post('/api/v1/warehouse_remains', {});
 
       const taskId = response.data?.data?.taskId;
 
@@ -36,9 +36,11 @@ export async function createRemainsReport() {
       const status = error.response?.status;
 
       if (status === 429) {
-        console.log('превышен лимит запросов, ожидание перед повтором...');
-        await delay(60000);
         retries++;
+        console.log(
+          `превышен лимит, попытка: ${retries}/${config.wb.maxRetries}, ждем...`,
+        );
+        await delay(70000);
         continue;
       }
 
@@ -46,7 +48,7 @@ export async function createRemainsReport() {
         retries++;
         const retryDelay = 1000 * Math.pow(2, retries - 1);
         console.log(
-          `ошибка сервера WB (${status}), попытка ${retries}/${config.wb.maxRetries} через ${retryDelay}мс...`,
+          `ошибка сервера WB (${status}), попытка ${retries} через ${retryDelay / 1000}с...`,
         );
         await delay(retryDelay);
         continue;
@@ -84,9 +86,8 @@ export async function checkReportStatus(taskId) {
         console.log(
           'превышен лимит запросов при проверке статуса, ожидание...',
         );
-        await delay(60000);
-        retries++;
-        continue;
+        await delay(70000);
+        return checkReportStatus(taskId);
       }
 
       if (status === 404) {
@@ -96,13 +97,11 @@ export async function checkReportStatus(taskId) {
       }
 
       if (status >= 500) {
-        retries++;
-        const retryDelay = 1000 * Math.pow(2, retries - 1);
         console.log(
           `ошибка сервера WB (${status}) при проверке статуса, попытка ${retries}/${config.wb.maxRetries}...`,
         );
-        await delay(retryDelay);
-        continue;
+        await delay(30000);
+        return checkReportStatus(taskId);
       }
 
       throw new Error(`ошибка проверки статуса: ${error.message}`);
@@ -123,12 +122,15 @@ export async function waitForReportReady(taskId, pollInterval = 5000) {
 
     switch (status) {
       case 'done':
-        console.log('отчет готов к скачиванию');
+        console.log('отчет готов. Ждем 180 секунд перед скачиванием...');
+        await delay(180000);
+        console.log('переходим к скачиванию...');
         return;
 
       case 'error':
         throw new Error('ошибка при формировании отчета на стороне WB');
 
+      case 'new':
       case 'pending':
       case 'processing':
         console.log(
@@ -144,61 +146,23 @@ export async function waitForReportReady(taskId, pollInterval = 5000) {
 }
 
 export async function downloadRemainsReport(taskId) {
-  let retries = 0;
-
-  while (retries < config.wb.maxRetries) {
-    try {
-      console.log(`скачивание отчета, task_id: ${taskId}`);
-
-      const response = await reportsApi.get(
+  try {
+    console.log(`скачивание отчета, task_id: ${taskId}`);
+    const response = await reportsApi.get(
+      `/api/v1/warehouse_remains/tasks/${taskId}/download`,
+    );
+    return response.data.data;
+  } catch (error) {
+    if (error.response?.status === 429) {
+      console.error('лимит. ждем 5 минут для финальной попытки...');
+      await delay(300000);
+      const finalResponse = await reportsApi.get(
         `/api/v1/warehouse_remains/tasks/${taskId}/download`,
       );
-
-      const data = response.data;
-
-      if (!Array.isArray(data)) {
-        console.log('ответ не является массивом, проверяем структуру:', data);
-        if (data?.data && Array.isArray(data.data)) {
-          return data.data;
-        }
-        throw new Error('неожиданный формат ответа от API');
-      }
-
-      console.log(`скачано записей: ${data.length}`);
-      return data;
-    } catch (error) {
-      const status = error.response?.status;
-
-      if (status === 429) {
-        console.log('превышен лимит запросов при скачивании, ожидание...');
-        await delay(60000);
-        retries++;
-        continue;
-      }
-
-      if (status === 404) {
-        throw new Error(
-          `отчет ${taskId} не найден (возможно истек срок хранения)`,
-        );
-      }
-
-      if (status >= 500) {
-        retries++;
-        const retryDelay = 1000 * Math.pow(2, retries - 1);
-        console.log(
-          `ошибка сервера WB (${status}) при скачивании, попытка ${retries}/${config.wb.maxRetries}...`,
-        );
-        await delay(retryDelay);
-        continue;
-      }
-
-      throw new Error(`ошибка скачивания отчета: ${error.message}`);
+      return finalResponse.data.data;
     }
+    throw error;
   }
-
-  throw new Error(
-    `не удалось скачать отчет после ${config.wb.maxRetries} попыток`,
-  );
 }
 
 export async function fetchRemains() {
