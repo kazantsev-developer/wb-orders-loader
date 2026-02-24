@@ -66,5 +66,15 @@ export default {
     uniqueOrderField: 'srid',
   },
 
+  moysklad: {
+    token: process.env.MS_TOKEN,
+    baseURL: process.env.MS_BASE_URL || 'https://api.moysklad.ru/api/remap/1.2',
+    timeout: parseInt(process.env.MS_REQUEST_TIMEOUT) || 60000,
+    maxRetries: parseInt(process.env.MS_MAX_RETRIES) || 5,
+    retryDelayMs: parseInt(process.env.MS_RETRY_DELAY) || 5000,
+    paginationDelayMs: parseInt(process.env.MS_PAGINATION_DELAY) || 2000,
+    heavyRequestDelayMs: parseInt(process.env.MS_HEAVY_REQUEST_DELAY) || 20000,
+  },
+
   isProduction: process.env.NODE_ENV === 'production',
 };

@@ -1,3 +1,4 @@
+import config from './config.js';
 import pool, { testConnection } from './src/db/connection.js';
 import { insertSyncLog } from './src/db/queries.js';
 import { fetchRemains } from './src/api/remainsClient.js';
@@ -9,6 +10,9 @@ import {
 const SCRIPT_VERSION = '1.0 (остатки)';
 
 async function syncRemains() {
+  if (!config.wb.token) {
+    throw new Error('WB_API_TOKEN не задан в .env');
+  }
   const startTime = Date.now();
   let totalProcessed = 0;
   let syncStatus = 'success';

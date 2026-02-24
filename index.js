@@ -11,6 +11,9 @@ import {
 
 // запуск каждые 30 минут (по cron)
 async function syncOrders() {
+  if (!config.wb.token) {
+    throw new Error('WB_API_TOKEN не задан в .env');
+  }
   const startTime = Date.now();
   const range = calculateDateRange();
 
