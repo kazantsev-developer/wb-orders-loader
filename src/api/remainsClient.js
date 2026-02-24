@@ -22,7 +22,7 @@ export async function createRemainsReport() {
     try {
       console.log('создание задачи на формирование отчета об остатках...');
 
-      const response = await reportsApi.post('/api/v1/warehouse_remains', {});
+      const response = await reportsApi.get('/api/v1/warehouse_remains');
 
       const taskId = response.data?.data?.taskId;
 
@@ -40,7 +40,7 @@ export async function createRemainsReport() {
         console.log(
           `превышен лимит, попытка: ${retries}/${config.wb.maxRetries}, ждем...`,
         );
-        await delay(70000);
+        await delay(80000);
         continue;
       }
 
@@ -113,7 +113,7 @@ export async function checkReportStatus(taskId) {
   );
 }
 
-export async function waitForReportReady(taskId, pollInterval = 5000) {
+export async function waitForReportReady(taskId, pollInterval = 30000) {
   console.log(`ожидание готовности отчета, task_id: ${taskId}`);
 
   while (true) {
