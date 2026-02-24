@@ -20,21 +20,15 @@ CREATE TABLE IF NOT EXISTS wb_orders (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
-
 CREATE INDEX IF NOT EXISTS idx_wb_orders_date ON wb_orders(date);
-
 CREATE INDEX IF NOT EXISTS idx_wb_orders_last_change ON wb_orders(last_change_date);
-
 COMMENT ON TABLE wb_orders IS 'заказы из WB API';
 
 CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
+RETURNS TRIGGER AS $$BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
     RETURN NEW;
-END;
-
-$$ language 'plpgsql';
+END;$$ language 'plpgsql';
 
 DROP TRIGGER IF EXISTS update_wb_orders_updated_at ON wb_orders;
 CREATE TRIGGER update_wb_orders_updated_at
@@ -53,7 +47,32 @@ CREATE TABLE IF NOT EXISTS sync_logs (
     pages_count INTEGER DEFAULT 0,
     execution_time_seconds INTEGER
 );
-
 CREATE INDEX IF NOT EXISTS idx_sync_logs_sync_at ON sync_logs(sync_at DESC);
-
 COMMENT ON TABLE sync_logs IS 'Логи синхронизации с Wildberries API';
+
+CREATE TABLE IF NOT EXISTS wb_remains (
+    nm_id INTEGER NOT NULL,
+    size VARCHAR(50) NOT NULL,
+    warehouse VARCHAR(50) NOT NULL,
+    quantity INTEGER NOT NULL,
+    barcode VARCHAR(50),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (nm_id, warehouse, size)
+);
+COMMENT ON TABLE wb_remains IS 'остатки товаров на складах WB';
+
+CREATE INDEX IF NOT EXISTS idx_wb_remains_warehouse ON wb_remains(warehouse);
+CREATE INDEX IF NOT EXISTS idx_wb_remains_updated ON wb_remains(updated_at DESC);
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger
+        WHERE tgname = 'обновить_время_изменения_остатков'
+    ) THEN
+        CREATE TRIGGER update_wb_remains_updated_at
+            BEFORE UPDATE ON wb_remains
+            FOR EACH ROW
+            EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;

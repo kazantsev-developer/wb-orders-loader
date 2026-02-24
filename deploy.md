@@ -12,7 +12,10 @@
 
 4. **Настройка Cron (каждые 30 минут):**
    `crontab -e`
-   Добавить: `*/30 * * * * cd /путь/к/проекту && /usr/bin/node src/index.js >> sync.log 2>&1`
+   Добавить:
+   `*/30 * * * * cd /путь/к/проекту && /usr/bin/node src/index.js >> sync.log 2>&1`
+   `*/30 * * * * cd /root/wb-orders-loader && node index-remains.js >> /var/log/wb-remains.log 2>&1`
 
 5. **Проверка:**
    `node src/index.js
+   `node index-remains.js
