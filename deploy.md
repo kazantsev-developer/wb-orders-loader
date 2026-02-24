@@ -17,5 +17,12 @@
    `*/30 * * * * cd /root/wb-orders-loader && node index-remains.js >> /var/log/wb-remains.log 2>&1`
 
 5. **Проверка:**
-   `node src/index.js
-   `node index-remains.js
+   `node src/index.js`
+   `node index-remains.js`
+
+## МойСклад (остатки по складам)
+
+- **Файлы:** `index-moysklad.js`, `src/api/moyskladClient.js`, `src/db/moyskladQueries.js`
+- **Добавить в .env:** `MS_TOKEN`, `MS_BASE_URL=https://api.moysklad.ru/api/remap/1.2`
+- **Cron:** `*/30 * * * * cd /root/wb-orders-loader && node index-moysklad.js >> /root/wb-orders-loader/logs/moysklad-cron.log 2>&1`
+- **Проверка:** `node index-moysklad.js`
