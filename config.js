@@ -85,5 +85,16 @@ export default {
     heavyRequestDelayMs: parseInt(process.env.MS_HEAVY_REQUEST_DELAY) || 20000,
   },
 
+  ozon: {
+    clientId: process.env.OZON_CLIENT_ID,
+    apiKey: process.env.OZON_API_KEY,
+    baseURL: 'https://api-seller.ozon.ru',
+    fboEndpoint: '/v2/posting/fbo/list',
+    fbsEndpoint: '/v3/posting/fbs/list',
+    limit: 1000,
+    timeout: parseInt(process.env.OZON_TIMEOUT) || 30000,
+    paginationDelayMs: parseInt(process.env.OZON_PAGINATION_DELAY) || 200,
+  },
+
   isProduction: process.env.NODE_ENV === 'production',
 };

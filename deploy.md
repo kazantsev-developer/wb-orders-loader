@@ -37,3 +37,8 @@
   - `node index-cards.js` (полная выгрузка при первом запуске)
   - `node index-cards.js check` (проверка последней синхронизации)
   - `node index-cards.js stats` (статистика по карточкам)
+
+## Озон (заказы FBO/FBS)
+
+- **Файлы:** `index-ozon-orders.js`, `src/api/ozonOrdersClient.js`, `src/db/ozonOrdersQueries.js`
+- **Добавить в .env:**

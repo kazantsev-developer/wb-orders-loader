@@ -249,3 +249,61 @@ CREATE TRIGGER update_sync_cursor_state_updated_at
 INSERT INTO sync_cursor_state (id, last_updated_at, last_nm_id)
 VALUES (1, NULL, NULL)
 ON CONFLICT (id) DO NOTHING;
+
+-- озон заказы
+CREATE TABLE IF NOT EXISTS ozon_orders (
+    posting_number VARCHAR(50) PRIMARY KEY,
+    order_id BIGINT,
+    order_number VARCHAR(50),
+    status VARCHAR(50),
+    delivery_method_id BIGINT,
+    tpl_integration_type VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE,
+    in_process_at TIMESTAMP WITH TIME ZONE,
+    shipment_date TIMESTAMP WITH TIME ZONE,
+    delivering_date TIMESTAMP WITH TIME ZONE,
+    products JSONB DEFAULT '[]'::jsonb,
+    analytics_data JSONB DEFAULT '{}'::jsonb,
+    financial_data JSONB DEFAULT '{}'::jsonb,
+    scheme VARCHAR(10),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ozon_orders_created_at ON ozon_orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ozon_orders_status ON ozon_orders(status);
+CREATE INDEX IF NOT EXISTS idx_ozon_orders_scheme ON ozon_orders(scheme);
+CREATE INDEX IF NOT EXISTS idx_ozon_orders_products ON ozon_orders USING GIN(products);
+CREATE INDEX IF NOT EXISTS idx_ozon_orders_analytics ON ozon_orders USING GIN (analytics_data);
+
+COMMENT ON TABLE ozon_orders IS 'заказы из Озон (FBO и FBS)';
+COMMENT ON COLUMN ozon_orders.posting_number IS 'уникальный нмоер отправления';
+COMMENT ON COLUMN ozon_orders.products IS 'товары в заказе (JSONB)';
+COMMENT ON COLUMN ozon_orders.analytics_data IS 'регион, город, склад (JSONB)';
+COMMENT ON COLUMN ozon_orders.financial_data IS 'цены, комиссии (JSONB)';
+COMMENT ON COLUMN ozon_orders.scheme IS 'FBO или FBS';
+
+DROP TRIGGER IF EXISTS update_ozon_orders_updated_at ON ozon_orders;
+CREATE TRIGGER update_ozon_orders_updated_at
+    BEFORE UPDATE ON ozon_orders
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TABLE IF NOT EXISTS ozon_sync_logs (
+    id SERIAL PRIMARY KEY,
+    sync_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    status VARCHAR(20) NOT NULL,
+    scheme VARCHAR(10) NOT NULL,
+    records_count INTEGER DEFAULT 0,
+    date_from TIMESTAMP WITH TIME ZONE,
+    date_to TIMESTAMP WITH TIME ZONE,
+    error_message TEXT,
+    execution_time_ms INTEGER
+);
+
+CREATE INDEX IF NOT EXISTS idx_ozon_sync_logs_at ON ozon_sync_logs(sync_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ozon_sync_logs_scheme ON ozon_sync_logs(scheme);
+
+COMMENT ON TABLE ozon_sync_logs IS 'логи выгрузки заказов Озон (FBO/FBS)';
+COMMENT ON COLUMN ozon_sync_logs.scheme IS 'тип заказов: FBO или FBS';
+COMMENT ON COLUMN ozon_sync_logs.date_from IS 'начало периода (текущая дата - 30 дней)';
+COMMENT ON COLUMN ozon_sync_logs.date_to IS 'конец периода (текущая дата - 1 день)';
