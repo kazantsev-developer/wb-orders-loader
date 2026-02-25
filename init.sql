@@ -124,10 +124,87 @@ CREATE TABLE IF NOT EXISTS sync_logs (
 CREATE INDEX IF NOT EXISTS idx_sync_logs_sync_at ON sync_logs(sync_at DESC);
 COMMENT ON TABLE sync_logs IS 'логи синхронизации с Wildberries API';
 
+-- таблица хранения карточек товаров
+CREATE TABLE IF NOT EXISTS wb_cards (
+    nm_id BIGINT PRIMARY KEY,
+    vendor_code VARCHAR(100) NOT NULL,
+    brand VARCHAR(255),
+    title TEXT,
+    description TEXT,
+    category VARCHAR(255),
+    subject VARCHAR(255),
+    characteristics JSONB DEFAULT '[]'::jsonb,
+    sizes JSONB DEFAULT '[]'::jsonb,
+    photos JSONB DEFAULT '[]'::jsonb,
+    video VARCHAR(500),
+    dimensions JSONB DEFAULT '{}'::jsonb,
+    weight INTEGER,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP);
+
+-- для ускорения поиска
+CREATE INDEX IF NOT EXISTS idx_wb_cards_vendor_code ON wb_cards(vendor_code);
+CREATE INDEX IF NOT EXISTS idx_wb_cards_brand ON wb_cards(brand);
+CREATE INDEX IF NOT EXISTS idx_wb_cards_category ON wb_cards(category);
+CREATE INDEX IF NOT EXISTS idx_wb_cards_updated_at ON wb_cards(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wb_cards_synced_at ON wb_cards(synced_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_wb_cards_characteristics ON wb_cards USING GIN (characteristics);
+CREATE INDEX IF NOT EXISTS idx_wb_cards_sizes ON wb_cards USING GIN (sizes);
+
+COMMENT ON TABLE wb_cards IS 'карточки товаров из WB Content API';
+COMMENT ON COLUMN wb_cards.nm_id IS 'уникальный id (bigint)';
+COMMENT ON COLUMN wb_cards.vendor_code IS 'артикул продавца';
+COMMENT ON COLUMN wb_cards.characteristics IS 'характеристики в форм JSON';
+COMMENT ON COLUMN wb_cards.sizes IS 'размеры, штрихкоды в формате JSON';
+COMMENT ON COLUMN wb_cards.photos IS 'фото в формате JSON';
+COMMENT ON COLUMN wb_cards.dimensions IS 'габариты упаковки (длина, ширина, высота)';
+COMMENT ON COLUMN wb_cards.updated_at IS 'время последнего обновления карточики';
+COMMENT ON COLUMN wb_cards.synced_at IS 'время последнй синхронизации';
+
+-- хранение состояния пагинации
+CREATE TABLE IF NOT EXISTS sync_cursor_state (
+    id INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    last_updated_at TIMESTAMP WITH TIME ZONE,
+    last_nm_id BIGINT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE sync_cursor_state IS 'сост. пагинации для инкрементальной выгрузки карточек';
+COMMENT ON COLUMN sync_cursor_state.last_updated_at IS 'последний updatedAt из ответа api';
+COMMENT ON COLUMN sync_cursor_state.last_nm_id IS 'последний nmId из ответа api';
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_name = 'sync_logs'
+        AND column_name = 'entity_type'
+    ) THEN
+        ALTER TABLE sync_logs
+        ADD COLUMN entity_type VARCHAR(50) DEFAULT 'orders' NOT NULL;
+
+        COMMENT ON COLUMN sync_logs.entity_type IS 'тип синхр. данных: orders, remains, cards, moysklad';
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_sync_logs_entity_type ON sync_logs(entity_type);
+CREATE INDEX IF NOT EXISTS idx_sync_logs_entity_sync_at ON sync_logs(entity_type, sync_at DESC);
+
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE OR REPLACE FUNCTION update_synced_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.synced_at = CURRENT_TIMESTAMP;
     RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -155,3 +232,20 @@ CREATE TRIGGER update_ms_stores_updated_at
     BEFORE UPDATE ON ms_stores
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_wb_cards_synced_at ON wb_cards;
+CREATE TRIGGER update_wb_cards_synced_at
+    BEFORE UPDATE ON wb_cards
+    FOR EACH ROW
+    EXECUTE FUNCTION update_synced_at_column();
+
+DROP TRIGGER IF EXISTS update_sync_cursor_state_updated_at ON sync_cursor_state;
+CREATE TRIGGER update_sync_cursor_state_updated_at
+    BEFORE UPDATE ON sync_cursor_state
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- инициализации записи в табл. курсора
+INSERT INTO sync_cursor_state (id, last_updated_at, last_nm_id)
+VALUES (1, NULL, NULL)
+ON CONFLICT (id) DO NOTHING;
