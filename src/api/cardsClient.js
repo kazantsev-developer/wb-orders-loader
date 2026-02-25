@@ -21,21 +21,19 @@ export async function fetchCardsBatch(cursor = null, limit = 100) {
 
   const requestBody = {
     settings: {
-      cursor: {
-        ...(cursor || {}),
-        limit: Math.min(limit, 100),
-      },
+      cursor: cursor || {},
       filter: {
         withPhoto: -1,
       },
     },
+    limit: Math.min(limit, 100),
   };
 
   if (!cursor) {
-    requestBody.settings.cursor = {
-      limit: Math.min(limit, 100),
-    };
+    delete requestBody.settings.cursor;
   }
+
+  console.log('[CardsAPI] request body:', JSON.stringify(requestBody, null, 2));
 
   while (retries < maxRetries) {
     try {

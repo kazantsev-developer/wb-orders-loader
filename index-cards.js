@@ -26,6 +26,7 @@ async function syncCards() {
   let totalProcessed = 0;
   let batchesCount = 0;
   let lastCursor = null;
+  let lastCursorState = null;
 
   console.log(`[${new Date().toISOString()}] запуск синхронизации карточек`);
   console.log(`версия: ${SCRIPT_VERSION}`);
@@ -40,7 +41,7 @@ async function syncCards() {
     if (!apiOk) throw new Error('не удалось подключиться к api WB');
 
     console.log('\n--- шаг 2: получение состояния пагинации ---');
-    const lastCursorState = await getLastCursor();
+    lastCursorState = await getLastCursor();
 
     if (lastCursorState) {
       console.log(

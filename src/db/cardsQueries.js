@@ -114,9 +114,15 @@ export async function getLastCursor() {
       return null;
     }
 
+    const updatedAt = result.rows[0].last_updated_at;
+    const isoString =
+      updatedAt instanceof Date
+        ? updatedAt.toISOString()
+        : new Date(updatedAt).toISOString();
+
     return {
-      updatedAt: result.rows[0].last_updated_at,
-      nmID: result.rows[0].last_nm_id,
+      updatedAt: isoString,
+      nmID: parseInt(result.rows[0].last_nm_id, 10),
     };
   } catch (error) {
     console.error('[CardsDB] ошибка при получении курсора:', error.message);
