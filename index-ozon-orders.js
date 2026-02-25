@@ -49,6 +49,7 @@ async function syncOzonOrders() {
 
   let totalProcessed = 0;
   const results = [];
+  let syncError = null;
 
   console.log(
     `[${new Date().toISOString()}] запуск синхронизации заказов Озон`,
@@ -147,6 +148,7 @@ async function syncOzonOrders() {
       }
     }
   } catch (error) {
+    syncError = error;
     console.error('\n!!! критическая ошибка:', error.message);
 
     try {
@@ -166,7 +168,7 @@ async function syncOzonOrders() {
     const executionTime = Math.round((Date.now() - startTime) / 1000);
 
     console.log('\n--- итоги выполнения ---');
-    console.log(`статус: ${errorMessage ? 'error' : 'success'}`);
+    console.log(`статус: ${syncError ? 'error' : 'success'}`);
     console.log(`всего обработано заказов: ${totalProcessed}`);
     console.log(`время выполнения: ${executionTime} сек`);
 
@@ -177,7 +179,7 @@ async function syncOzonOrders() {
     }
 
     console.log(
-      `\n[${new Date().toISOString()}] ===== ЗАВЕРШЕНИЕ РАБОТЫ =====`,
+      `\n[${new Date().toISOString()}] --- завершение работы ---`,
     );
   }
 }

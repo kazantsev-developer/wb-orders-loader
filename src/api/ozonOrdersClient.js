@@ -142,15 +142,18 @@ export async function fetchFBSOrdersBatch(
       const orders = result.postings || [];
       const hasNext = result.has_next && orders.length > 0;
 
-      console.log(
-        `[OzonAPI] FBS: получено ${orders.length}, has_next=${hasNext}`,
-      );
+      if (orders.length > 0) {
+        console.log(`[DEBUG FBS] Первый заказ: ${orders[0].posting_number}`);
+        console.log(`[DEBUG FBS] Последний заказ: ${orders[orders.length-1].posting_number}`);
+        console.log(`[DEBUG FBS] Всего заказов: ${orders.length}, hasNext: ${hasNext}`);
+      } else {
+        console.log(`[DEBUG FBS] Заказов нет, hasNext: ${hasNext}`);
+      }
 
       return {
         orders,
         hasNext,
-        lastId:
-          orders.length > 0 ? orders[orders.length - 1].posting_number : lastId,
+        lastId: orders.length > 0 ? orders[orders.length - 1].posting_number : lastId,
       };
     } catch (error) {
       const status = error.response?.status;
@@ -269,6 +272,8 @@ export async function fetchAllFBSOrders(since, to, onBatch) {
         lastId: newLastId,
       } = await fetchFBSOrdersBatch(since, to, lastId, limit);
 
+      console.log(`[DEBUG PAGINATION] lastId было: ${lastId}, newLastId стало: ${newLastId}, orders.length: ${orders.length}, hasNext: ${hasNext}`);
+
       batchesCount++;
       totalProcessed += orders.length;
 
@@ -280,10 +285,16 @@ export async function fetchAllFBSOrders(since, to, onBatch) {
         hasMore = false;
         console.log(`[OzonAPI] достигнут конец данных для FBS`);
       } else {
-        lastId = newLastId;
+        if (newLastId === lastId) {
+          console.warn(`[WARNING] lastId не изменился! Возможно бесконечный цикл. newLastId=${newLastId}, lastId=${lastId}`);
+          hasMore = false;
+        } else {
+          lastId = newLastId;
+          console.log(`[DEBUG] lastId обновлен: ${lastId}`);
 
-        if (config.ozon?.paginationDelayMs) {
-          await delay(config.ozon.paginationDelayMs);
+          if (config.ozon?.paginationDelayMs) {
+            await delay(config.ozon.paginationDelayMs);
+          }
         }
       }
     } catch (error) {
