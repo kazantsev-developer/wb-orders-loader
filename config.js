@@ -37,6 +37,15 @@ export default {
     flag: 0,
   },
 
+  cards: {
+    endpoint: '/content/v2/get/cards/list',
+    limit: 100,
+    timeout: parseInt(process.env.CARDS_TIMEOUT) || 30000,
+    maxRetries: parseInt(process.env.CARDS_MAX_RETRIES) || 3,
+    paginationDelayMs: parseInt(process.env.CARDS_PAGINATION_DELAY) || 1000,
+    batchDelayMs: parseInt(process.env.CARDS_BATCH_DELAY) || 500,
+  },
+
   db: {
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT) || 5432,
