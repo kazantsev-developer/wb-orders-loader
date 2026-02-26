@@ -47,7 +47,6 @@ async function syncOzonStocks() {
     console.log(`всего доступно: ${statsBefore?.total_visible || 0}`);
     console.log(`всего с резервом: ${statsBefore?.total_present || 0}`);
 
-    // Шаг 3: Выгрузка остатков из API
     console.log('\n--- шаг 3: выгрузка остатков из api ---');
 
     const result = await fetchAllStocks(async (stocks) => {
@@ -66,12 +65,10 @@ async function syncOzonStocks() {
       );
     });
 
-    // Шаг 4: Обнуление устаревших остатков
     console.log('\n--- шаг 4: обнуление устаревших остатков ---');
     const resetCount = await resetStaleStocks(syncStartTime);
     console.log(`обнулено товаров, отсутствующих в выгрузке: ${resetCount}`);
 
-    // Шаг 5: Статистика после выгрузки
     console.log('\n--- шаг 5: статистика после выгрузки ---');
     const statsAfter = await getStocksStats();
     console.log(`товаров в БД: ${statsAfter?.total_products || 0}`);
