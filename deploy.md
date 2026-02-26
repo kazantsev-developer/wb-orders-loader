@@ -41,4 +41,20 @@
 ## Озон (заказы FBO/FBS)
 
 - **Файлы:** `index-ozon-orders.js`, `src/api/ozonOrdersClient.js`, `src/db/ozonOrdersQueries.js`
-- **Добавить в .env:**
+- **Настройка .env:** используются существующие `OZON_CLIENT_ID`, `OZON_API_KEY` (см. секцию "Озон" в `.env`)
+- **Cron:** `*/30 * * * * cd /root/wb-orders-loader && node index-ozon-orders.js >> /var/log/ozon-orders.log 2>&1`
+- **Проверка:**
+  - `node index-ozon-orders.js` (полная выгрузка)
+  - `node index-ozon-orders.js check` (проверка последней синхронизации)
+  - `node index-ozon-orders.js stats` (статистика по заказам)
+
+## Озон (остатки FBO)
+
+- **Файлы:** `index-ozon-stocks.js`, `src/api/ozonStocksClient.js`, `src/db/ozonStocksQueries.js`
+- **Таблицы в БД:** уже включены в `init.sql` (`ozon_remains`)
+- **Настройка .env:** используются существующие `OZON_CLIENT_ID` и `OZON_API_KEY` (из секции заказов)
+- **Cron:** `*/30 * * * * cd /root/wb-orders-loader && node index-ozon-stocks.js >> /var/log/ozon-stocks.log 2>&1`
+- **Проверка:**
+  - `node index-ozon-stocks.js` (полная выгрузка)
+  - `node index-ozon-stocks.js check` (проверка последней синхронизации)
+  - `node index-ozon-stocks.js stats` (статистика по остаткам)

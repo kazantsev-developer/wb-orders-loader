@@ -307,3 +307,40 @@ COMMENT ON TABLE ozon_sync_logs IS 'логи выгрузки заказов О�
 COMMENT ON COLUMN ozon_sync_logs.scheme IS 'тип заказов: FBO или FBS';
 COMMENT ON COLUMN ozon_sync_logs.date_from IS 'начало периода (текущая дата - 30 дней)';
 COMMENT ON COLUMN ozon_sync_logs.date_to IS 'конец периода (текущая дата - 1 день)';
+
+-- Озон остатки
+CREATE TABLE IF NOT EXISTS ozon_remains (
+    sku BIGINT PRIMARY KEY,
+    product_id BIGINT NOT NULL,
+    item_code VARCHAR(100),
+    category TEXT,
+    brand VARCHAR(255),
+    name TEXT,
+    fbo_visible_amount INTEGER DEFAULT 0,
+    fbo_present_amount INTEGER DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    synced_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_ozon_remains_product_id ON ozon_remains(product_id);
+CREATE INDEX IF NOT EXISTS idx_ozon_remains_item_code ON ozon_remains(item_code);
+CREATE INDEX IF NOT EXISTS idx_ozon_remains_brand ON ozon_remains(brand);
+CREATE INDEX IF NOT EXISTS idx_ozon_remains_synced_at ON ozon_remains(synced_at);
+CREATE INDEX IF NOT EXISTS idx_ozon_remains_updated_at ON ozon_remains(updated_at DESC);
+
+COMMENT ON TABLE ozon_remains IS 'остатки товаров Ozon (FBO)';
+COMMENT ON COLUMN ozon_remains.sku IS 'штрихкод товара (primary key)';
+COMMENT ON COLUMN ozon_remains.product_id IS 'ID товара в Ozon';
+COMMENT ON COLUMN ozon_remains.item_code IS 'артикул продавца (offer_id)';
+COMMENT ON COLUMN ozon_remains.category IS 'категория товара (может быть длинной)';
+COMMENT ON COLUMN ozon_remains.brand IS 'бренд товара';
+COMMENT ON COLUMN ozon_remains.name IS 'название товара';
+COMMENT ON COLUMN ozon_remains.fbo_visible_amount IS 'доступно к продаже (FBO)';
+COMMENT ON COLUMN ozon_remains.fbo_present_amount IS 'всего на складе (с резервом)';
+COMMENT ON COLUMN ozon_remains.synced_at IS 'время последней синхронизации';
+
+DROP TRIGGER IF EXISTS update_ozon_remains_updated_at ON ozon_remains;
+CREATE TRIGGER update_ozon_remains_updated_at
+    BEFORE UPDATE ON ozon_remains
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
