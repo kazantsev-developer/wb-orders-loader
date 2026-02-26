@@ -6,13 +6,28 @@ export function normalizeRemainsData(reportData) {
     return [];
   }
 
-  return reportData.map((item) => ({
-    nmId: item.nmId || item.nm_id,
-    size: item.size || '',
-    warehouse: item.warehouseName || item.warehouse,
-    quantity: item.quantity || 0,
-    barcode: item.barcode || null,
-  }));
+  const flattened = [];
+
+  for (const item of reportData) {
+    const nmId = item.nmID || item.nmId || item.nm_id || 999999;
+
+    const warehouses = item.warehouses || [];
+
+    for (const wh of warehouses) {
+      flattened.push({
+        nmId: nmId,
+        size: item.size || item.techSize || '',
+        warehouse: wh.warehouseName || 'Неизвестный склад',
+        quantity: Number(wh.quantity) || 0,
+        barcode: item.barcode || null,
+      });
+    }
+  }
+
+  console.log(
+    `развернуто записей: из ${reportData.length} товаров -> ${flattened.length} остатков`,
+  );
+  return flattened;
 }
 
 export async function upsertRemainsBatch(remainsData) {

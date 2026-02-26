@@ -1,13 +1,13 @@
-import config from '../config.js';
-import pool, { testConnection } from './db/connection.js';
-import { upsertOrdersBatch, insertSyncLog } from './db/queries.js';
-import { fetchOrders, delay } from './api/wbClient.js';
+import config from './config.js';
+import pool, { testConnection } from './src/db/connection.js';
+import { upsertOrdersBatch, insertSyncLog } from './src/db/queries.js';
+import { fetchOrders, delay } from './src/api/wbClient.js';
 import {
   calculateDateRange,
   getNextDateFrom,
   shouldContinuePagination,
   filterOrdersByDate,
-} from './utils/dateUtils.js';
+} from './src/utils/dateUtils.js';
 
 // запуск каждые 30 минут (по cron)
 async function syncOrders() {

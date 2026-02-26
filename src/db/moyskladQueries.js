@@ -107,9 +107,9 @@ export async function insertStockDetailsBatch(stockDetails) {
           item.snapshot_id,
           item.product_uuid,
           item.store_uuid,
-          item.stock,
-          item.reserve,
-          item.in_transit,
+          Math.round(item.stock) || 0,
+          Math.round(item.reserve) || 0,
+          Math.round(item.in_transit) || 0,
         );
       }
 
@@ -117,6 +117,11 @@ export async function insertStockDetailsBatch(stockDetails) {
         INSERT INTO ms_stock_details (
           snapshot_id, product_uuid, store_uuid, stock, reserve, in_transit
         ) VALUES ${placeholders.join(', ')}
+        ON CONFLICT (snapshot_id, product_uuid, store_uuid) 
+        DO UPDATE SET
+          stock = EXCLUDED.stock,
+          reserve = EXCLUDED.reserve,
+          in_transit = EXCLUDED.in_transit
       `;
 
       await client.query(query, values);
@@ -164,9 +169,9 @@ export async function upsertProductAggregates(aggregates) {
         item.product_uuid,
         item.article,
         item.name,
-        item.total_stock,
-        item.total_reserve,
-        item.total_in_transit,
+        Math.round(item.total_stock) || 0,
+        Math.round(item.total_reserve) || 0,
+        Math.round(item.total_in_transit) || 0,
         item.snapshot_id,
       ];
 

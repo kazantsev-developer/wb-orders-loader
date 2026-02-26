@@ -33,8 +33,6 @@ let requestTimestamps = [];
 function checkRateLimit(isHeavy = false) {
   const now = Date.now();
   requestTimestamps = requestTimestamps.filter((ts) => now - ts < 60000);
-
-  // тяжелые 5 в минуту, обычные 45
   const limit = isHeavy ? 5 : 45;
 
   if (requestTimestamps.length >= limit) {
@@ -111,7 +109,6 @@ export async function fetchStores() {
           params: {
             limit,
             offset,
-            fields: 'id,name,code,externalCode,address,created,updated',
           },
         });
       }, false);
@@ -142,7 +139,7 @@ export async function fetchStores() {
 
 export async function fetchStockByStore(limit = 1000, offset = 0) {
   return await rateLimitedRequest(async () => {
-    const response = await apiClient.get('report/stock/byStore', {
+    const response = await apiClient.get('report/stock/bystore', {
       params: {
         limit,
         offset,
@@ -180,19 +177,6 @@ export async function fetchAllStockByStore() {
       allRows = [...allRows, ...rows];
       console.log(`получено строк: ${rows.length}, всего: ${allRows.length}`);
 
-      const hasStockByStore = rows.some(
-        (row) =>
-          row.stockByStore &&
-          Array.isArray(row.stockByStore) &&
-          row.stockByStore.length > 0,
-      );
-
-      if (!hasStockByStore) {
-        console.warn(
-          'внимание: в ответе отсутствует детализация stockByStore!',
-        );
-      }
-
       if (rows.length < limit) {
         console.log('достигнут конец данных');
         break;
@@ -229,18 +213,17 @@ export function extractStoreName(storeMeta) {
 }
 
 export function normalizeStockData(rows, snapshotId) {
-  const stockDetails = [];
+  const stockDetailsMap = new Map();
   const productTotals = new Map();
 
   for (const row of rows) {
-    const productUuid = extractUuidFromHref(row.product?.meta?.href);
-    if (!productUuid) {
-      console.warn('пропуск строки: не удалось извлечь uuid товара', row);
-      continue;
-    }
+    const productUuid = row.meta?.href
+      ? extractUuidFromHref(row.meta.href)
+      : null;
+    if (!productUuid) continue;
 
-    const article = row.product?.article || null;
-    const productName = row.product?.name || null;
+    const article = row.article || null;
+    const productName = row.name || null;
 
     if (!productTotals.has(productUuid)) {
       productTotals.set(productUuid, {
@@ -250,43 +233,53 @@ export function normalizeStockData(rows, snapshotId) {
         total_stock: 0,
         total_reserve: 0,
         total_in_transit: 0,
+        snapshot_id: snapshotId,
       });
     }
-
     const totals = productTotals.get(productUuid);
 
-    if (article && !totals.article) totals.article = article;
-    if (productName && !totals.name) totals.name = productName;
-
-    if (Array.isArray(row.stockByStore)) {
+    if (row.stockByStore && Array.isArray(row.stockByStore)) {
       for (const stockItem of row.stockByStore) {
-        const storeUuid = extractUuidFromHref(stockItem.store?.meta?.href);
+        // meta внутри stockItem указывает прямо на склад!
+        const storeUuid = stockItem.meta?.href
+          ? extractUuidFromHref(stockItem.meta.href)
+          : null;
+
         if (!storeUuid) continue;
 
-        const quantity = stockItem.quantity || 0;
-        const reserve = stockItem.reserve || 0;
-        const inTransit = stockItem.inTransit || 0;
+        const stock = Math.round(stockItem.stock) || 0;
+        const reserve = Math.round(stockItem.reserve) || 0;
+        const inTransit = Math.round(stockItem.inTransit) || 0;
 
-        stockDetails.push({
-          snapshot_id: snapshotId,
-          product_uuid: productUuid,
-          store_uuid: storeUuid,
-          stock: quantity,
-          reserve: reserve,
-          in_transit: inTransit,
-        });
+        if (stock !== 0 || reserve !== 0 || inTransit !== 0) {
+          const detailKey = `${productUuid}_${storeUuid}`;
 
-        totals.total_stock += quantity;
-        totals.total_reserve += reserve;
-        totals.total_in_transit += inTransit;
+          if (!stockDetailsMap.has(detailKey)) {
+            stockDetailsMap.set(detailKey, {
+              snapshot_id: snapshotId,
+              product_uuid: productUuid,
+              store_uuid: storeUuid,
+              stock: 0,
+              reserve: 0,
+              in_transit: 0,
+            });
+          }
+
+          const detail = stockDetailsMap.get(detailKey);
+          detail.stock += stock;
+          detail.reserve += reserve;
+          detail.in_transit += inTransit;
+
+          totals.total_stock += stock;
+          totals.total_reserve += reserve;
+          totals.total_in_transit += inTransit;
+        }
       }
     }
   }
 
-  const productAggregates = Array.from(productTotals.values());
-
   return {
-    stockDetails,
-    productAggregates,
+    stockDetails: Array.from(stockDetailsMap.values()),
+    productAggregates: Array.from(productTotals.values()),
   };
 }

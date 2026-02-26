@@ -120,28 +120,19 @@ export async function waitForReportReady(taskId, pollInterval = 30000) {
     const status = await checkReportStatus(taskId);
     console.log(`статус отчета: ${status}`);
 
-    switch (status) {
-      case 'done':
-        console.log('отчет готов. Ждем 180 секунд перед скачиванием...');
-        await delay(180000);
-        console.log('переходим к скачиванию...');
-        return;
-
-      case 'error':
-        throw new Error('ошибка при формировании отчета на стороне WB');
-
-      case 'new':
-      case 'pending':
-      case 'processing':
-        console.log(
-          `отчет формируется, следующая проверка через ${pollInterval / 1000} сек...`,
-        );
-        await delay(pollInterval);
-        break;
-
-      default:
-        throw new Error(`неизвестный статус отчета: ${status}`);
+    if (status === 'done') {
+      console.log('отчет готов, скачиваем...');
+      return;
     }
+
+    if (status === 'error') {
+      throw new Error('ошибка при формировании отчета на стороне WB');
+    }
+
+    console.log(
+      `отчет формируется, следующая проверка через ${pollInterval / 1000} сек...`,
+    );
+    await delay(pollInterval);
   }
 }
 
@@ -151,7 +142,16 @@ export async function downloadRemainsReport(taskId) {
     const response = await reportsApi.get(
       `/api/v1/warehouse_remains/tasks/${taskId}/download`,
     );
-    return response.data.data;
+
+    // WB может вернуть данные в .data или .data.data
+    const reportData = response.data?.data || response.data;
+
+    if (!reportData) {
+      console.error('пустой ответ от WB:', response.data);
+      return [];
+    }
+
+    return Array.isArray(reportData) ? reportData : [];
   } catch (error) {
     if (error.response?.status === 429) {
       console.error('лимит. ждем 5 минут для финальной попытки...');
@@ -159,7 +159,8 @@ export async function downloadRemainsReport(taskId) {
       const finalResponse = await reportsApi.get(
         `/api/v1/warehouse_remains/tasks/${taskId}/download`,
       );
-      return finalResponse.data.data;
+      const reportData = finalResponse.data?.data || finalResponse.data;
+      return Array.isArray(reportData) ? reportData : [];
     }
     throw error;
   }
@@ -173,6 +174,7 @@ export async function fetchRemains() {
 
     const remains = await downloadRemainsReport(taskId);
 
+    console.log(`получено записей от API: ${remains ? remains.length : 0}`);
     return remains;
   } catch (error) {
     console.error('ошибка при получении остатков:', error.message);
